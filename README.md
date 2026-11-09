@@ -14,7 +14,7 @@ python -m unittest discover -s tests -v
 
 Python 3.9+; standard library only; no API key, model usage, network call, or external service required.
 
-## Coverage (11 tests)
+## Coverage (14 tests)
 
 - Missing tool registration fails immediately, with zero handler invocations.
 - Distinct disconnected, expired authentication, and denied states.
@@ -25,7 +25,7 @@ Python 3.9+; standard library only; no API key, model usage, network call, or ex
 - Synthetic late stop success reused rather than requesting another stop.
 - Illustrative artifact *metadata* gate detects missing requirements; **not** actual PE binary inspection.
 
-The instrumented local dispatcher in `instrumented_runtime.py` is real Python execution but is **not** a vendor Agent Runtime or browser-control reproduction.
+The subprocess adapter (`subprocess_adapter.py`) runs an actual local process with `shell=False` and captures exit status. Its three tests cover execution, permission revocation before execution, and nonzero exit codes. This remains a local subprocess integration, **not** Codex or another vendor runtime.\n\nThe instrumented local dispatcher in `instrumented_runtime.py` is real Python execution but is **not** a vendor Agent Runtime or browser-control reproduction.
 
 ## Example
 
