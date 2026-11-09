@@ -7,6 +7,7 @@ import json
 import queue
 import threading
 import subprocess
+import time
 
 
 class MCPProtocolError(RuntimeError):
@@ -21,6 +22,7 @@ class MCPStdioProbe:
         self.next_id = 0
         self.lines = queue.Queue()
         self.events = []
+        self.poisoned = False
 
     def __enter__(self):
         self.process = subprocess.Popen(self.argv, stdin=subprocess.PIPE,
@@ -55,30 +57,46 @@ class MCPStdioProbe:
         self.events.append({'event': 'send', 'method': obj.get('method')})
 
     def request(self, method, params=None):
+        if self.poisoned:
+            raise MCPProtocolError('session unusable after previous protocol failure')
         self.next_id += 1
         request_id = self.next_id
         self._send({'jsonrpc': '2.0', 'id': request_id,
                     'method': method, 'params': params or {}})
+        deadline = time.monotonic() + self.timeout
         try:
-            line = self.lines.get(timeout=self.timeout)
-        except queue.Empty as exc:
-            raise MCPProtocolError('response timeout') from exc
-        if not line:
-            raise MCPProtocolError('server closed stdout')
-        if len(line) > 1024 * 1024:
-            raise MCPProtocolError('response line too large')
-        try:
-            message = json.loads(line.decode('utf-8'))
-        except (ValueError, UnicodeDecodeError) as exc:
-            raise MCPProtocolError('non-JSON data on protocol stdout') from exc
-        if message.get('id') != request_id:
-            raise MCPProtocolError('unexpected response ID')
-        if message.get('jsonrpc') != '2.0':
-            raise MCPProtocolError('invalid JSON-RPC version')
-        if 'error' in message:
-            raise MCPProtocolError('server returned JSON-RPC error')
-        self.events.append({'event': 'response', 'method': method})
-        return message.get('result')
+            while True:
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    raise MCPProtocolError('response timeout')
+                try:
+                    line = self.lines.get(timeout=remaining)
+                except queue.Empty as exc:
+                    raise MCPProtocolError('response timeout') from exc
+                if not line:
+                    raise MCPProtocolError('server closed stdout')
+                if len(line) > 1024 * 1024:
+                    raise MCPProtocolError('response line too large')
+                try:
+                    message = json.loads(line.decode('utf-8'))
+                except (ValueError, UnicodeDecodeError) as exc:
+                    raise MCPProtocolError('non-JSON data on protocol stdout') from exc
+                if not isinstance(message, dict) or message.get('jsonrpc') != '2.0':
+                    raise MCPProtocolError('invalid JSON-RPC message')
+                if 'id' not in message and isinstance(message.get('method'), str):
+                    self.events.append({'event': 'notification', 'method': message['method']})
+                    continue
+                if message.get('id') != request_id:
+                    raise MCPProtocolError('unexpected response ID')
+                if 'error' in message:
+                    raise MCPProtocolError('server returned JSON-RPC error')
+                if 'result' not in message:
+                    raise MCPProtocolError('response missing result')
+                self.events.append({'event': 'response', 'method': method})
+                return message['result']
+        except MCPProtocolError:
+            self.poisoned = True
+            raise
 
     def initialize(self):
         result = self.request('initialize', {'protocolVersion': '2025-06-18',
