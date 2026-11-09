@@ -20,6 +20,30 @@ class MCPStdioProbeTests(unittest.TestCase):
             with self.assertRaisesRegex(MCPProtocolError, 'non-JSON'):
                 probe.request('initialize')
 
+    def test_interleaved_notification_before_response(self):
+        code = ("import sys,json; "
+                "r=json.loads(sys.stdin.readline()); "
+                "print(json.dumps({'jsonrpc':'2.0','method':'notifications/progress','params':{}}),flush=True); "
+                "print(json.dumps({'jsonrpc':'2.0','id':r['id'],'result':{'ok':True}}),flush=True)")
+        with MCPStdioProbe([sys.executable, '-u', '-c', code]) as probe:
+            self.assertEqual(probe.request('test'), {'ok': True})
+            self.assertEqual(probe.events[-2]['event'], 'notification')
+
+    def test_timeout_poison_prevents_late_response_misassociation(self):
+        with MCPStdioProbe([sys.executable, '-u', '-c', 'import time; time.sleep(2)'], timeout=.05) as probe:
+            with self.assertRaisesRegex(MCPProtocolError, 'timeout'):
+                probe.request('first')
+            with self.assertRaisesRegex(MCPProtocolError, 'unusable'):
+                probe.request('second')
+            self.assertEqual(probe.next_id, 1)
+
+    def test_response_missing_result_is_rejected(self):
+        code = ("import sys,json; r=json.loads(sys.stdin.readline()); "
+                "print(json.dumps({'jsonrpc':'2.0','id':r['id']}),flush=True)")
+        with MCPStdioProbe([sys.executable, '-u', '-c', code]) as probe:
+            with self.assertRaisesRegex(MCPProtocolError, 'missing result'):
+                probe.request('test')
+
     def test_timeout_is_bounded(self):
         with MCPStdioProbe([sys.executable, '-u', '-c', 'import time; time.sleep(2)'], timeout=.1) as probe:
             with self.assertRaisesRegex(MCPProtocolError, 'timeout'):
