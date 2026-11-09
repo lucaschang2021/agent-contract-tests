@@ -51,4 +51,4 @@ GitHub Actions runs the local tests on Python 3.9, 3.11, and 3.13 on pushes and 
 
 ## Contributions and license
 
-Reproducible tests, documentation, and narrowly scoped improvements are welcome. Do not share credentials or private logs. **A license has not yet been selected**; permission to reuse the code beyond applicable law is not implied until a license is added.
+Reproducible tests, documentation, and narrowly scoped improvements are welcome. Do not share credentials or private logs. This project is released under the [MIT License](LICENSE).
