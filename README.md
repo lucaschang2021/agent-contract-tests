@@ -14,7 +14,7 @@ python -m unittest discover -s tests -v
 
 Python 3.9+; standard library only; no API key, model usage, network call, or external service required.
 
-## Coverage (17 tests)
+## Coverage (20 tests)
 
 - Missing tool registration fails immediately, with zero handler invocations.
 - Distinct disconnected, expired authentication, and denied states.
@@ -25,7 +25,7 @@ Python 3.9+; standard library only; no API key, model usage, network call, or ex
 - Synthetic late stop success reused rather than requesting another stop.
 - Illustrative artifact *metadata* gate detects missing requirements; **not** actual PE binary inspection.
 
-The stdio probe (`mcp_stdio_probe.py`) performs actual JSON-RPC communication with a **local deterministic fixture process**. Its three tests exercise initialization/tool discovery/tool invocation, invalid stdout, and timeout. This is not an integration with the official MCP Python SDK or a third-party agent. The probe is intentionally minimal and does not implement the full MCP specification.\n\nThe subprocess adapter (`subprocess_adapter.py`) runs an actual local process with `shell=False` and captures exit status. Its three tests cover execution, permission revocation before execution, and nonzero exit codes. This remains a local subprocess integration, **not** Codex or another vendor runtime.\n\nThe instrumented local dispatcher in `instrumented_runtime.py` is real Python execution but is **not** a vendor Agent Runtime or browser-control reproduction.
+The stdio probe (`mcp_stdio_probe.py`) performs actual JSON-RPC communication with a **local deterministic fixture process**. Its three tests exercise initialization/tool discovery/tool invocation, invalid stdout, timeout, interleaved notifications, timeout-session isolation, and missing result fields. This is not an integration with the official MCP Python SDK or a third-party agent. The probe is intentionally minimal and does not implement the full MCP specification.\n\nThe subprocess adapter (`subprocess_adapter.py`) runs an actual local process with `shell=False` and captures exit status. Its three tests cover execution, permission revocation before execution, and nonzero exit codes. This remains a local subprocess integration, **not** Codex or another vendor runtime.\n\nThe instrumented local dispatcher in `instrumented_runtime.py` is real Python execution but is **not** a vendor Agent Runtime or browser-control reproduction.
 
 ## Example
 
